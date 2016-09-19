@@ -1,10 +1,11 @@
 from conans import ConanFile, CMake
 from conans.tools import download, unzip, replace_in_file
 import os
+import shutil
 
 class EzHttpConan(ConanFile):
     name = "ez-http"
-    version = "0.0.2"
+    version = "0.0.3"
     url = "https://github.com/0x7f/ez-http"
     license = "https://github.com/0x7f/ez-http/blob/master/LICENSE"
     export = "*"
@@ -19,6 +20,7 @@ class EzHttpConan(ConanFile):
         download("https://github.com/0x7f/ez-http/archive/%s" % zip_name, zip_name)
         unzip(zip_name)
         os.unlink(zip_name)
+        shutil("%s-%s/*" % (self.name, self.version), ".")
 
     def imports(self):
         self.copy("*.dll", dst="bin", src="bin") # From bin to bin
