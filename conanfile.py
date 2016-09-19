@@ -1,11 +1,11 @@
 from conans import ConanFile, CMake
 from conans.tools import download, unzip, replace_in_file
 import os
-import shutil
 
 class EzHttpConan(ConanFile):
     name = "ez-http"
-    version = "0.0.3"
+    version = "0.0.4"
+    ZIP_FOLDER_NAME = "%s-%s" % (name, version)
     url = "https://github.com/0x7f/ez-http"
     license = "https://github.com/0x7f/ez-http/blob/master/LICENSE"
     export = "*"
@@ -20,7 +20,6 @@ class EzHttpConan(ConanFile):
         download("https://github.com/0x7f/ez-http/archive/%s" % zip_name, zip_name)
         unzip(zip_name)
         os.unlink(zip_name)
-        shutil("%s-%s/*" % (self.name, self.version), ".")
 
     def imports(self):
         self.copy("*.dll", dst="bin", src="bin") # From bin to bin
@@ -28,13 +27,13 @@ class EzHttpConan(ConanFile):
 
     def build(self):
         cmake = CMake(self.settings)
-        self.run('cmake "%s" %s' % (self.conanfile_directory, cmake.command_line))
-        self.run('cmake --build . %s' % cmake.build_config)
+        self.run('cmake %s %s' % (self.ZIP_FOLDER_NAME, cmake.command_line))
+        self.run('cmake --build . %s' % (cmake.build_config))
 
     def package(self):
-        self.copy("*.h", dst="src")
-        self.copy("*.lib", dst="lib", src="lib")
-        self.copy("*.a", dst="lib", src="lib")
+        self.copy("*.h", dst="src", src=self.ZIP_FOLDER_NAME)
+        self.copy("*.lib", dst="lib", src="%s/lib" % self.ZIP_FOLDER_NAME)
+        self.copy("*.a", dst="lib", src="%s/lib" % self.ZIP_FOLDER_NAME)
 
     def package_info(self):
         self.cpp_info.libs = ["ez-http"]
