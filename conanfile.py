@@ -4,7 +4,7 @@ import os
 
 class EzHttpConan(ConanFile):
     name = "ez-http"
-    version = "0.0.4"
+    version = "0.0.5"
     ZIP_FOLDER_NAME = "%s-%s" % (name, version)
     url = "https://github.com/0x7f/ez-http"
     license = "https://github.com/0x7f/ez-http/blob/master/LICENSE"
@@ -31,9 +31,9 @@ class EzHttpConan(ConanFile):
         self.run('cmake --build . %s' % (cmake.build_config))
 
     def package(self):
-        self.copy("*.h", dst="src", src=self.ZIP_FOLDER_NAME)
-        self.copy("*.lib", dst="lib", src="%s/lib" % self.ZIP_FOLDER_NAME)
-        self.copy("*.a", dst="lib", src="%s/lib" % self.ZIP_FOLDER_NAME)
+        self.copy("*.h", dst="include", src="%s/src" % self.ZIP_FOLDER_NAME)
+        self.copy("*.lib", dst="lib", src="lib")
+        self.copy("*.a", dst="lib", src="lib")
 
     def package_info(self):
         self.cpp_info.libs = ["ez-http"]
