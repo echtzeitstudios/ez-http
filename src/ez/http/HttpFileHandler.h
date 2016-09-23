@@ -14,10 +14,13 @@ class HttpFileHandler : public HttpRequestHandler {
     virtual bool handleRequest(const HttpRequest &req,
                                HttpResponse &res) override;
 
+    bool setFileNotFoundPage(const std::string &errorPath);
+
   private:
     std::string determine_mime_type(const std::string &extension);
 
     std::string root_;
+    std::string errorPage_;
 };
 
 } // namespace http
