@@ -4,7 +4,7 @@ import os
 
 class EzHttpConan(ConanFile):
     name = "ez-http"
-    version = "0.2.1"
+    version = "0.2.2"
     ZIP_FOLDER_NAME = "%s-%s" % (name, version)
     url = "https://github.com/0x7f/ez-http"
     license = "https://github.com/0x7f/ez-http/blob/master/LICENSE"
