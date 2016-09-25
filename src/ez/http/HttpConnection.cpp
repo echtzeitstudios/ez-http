@@ -15,7 +15,8 @@ namespace http {
 
 HttpConnection::HttpConnection(boost::asio::io_service &io_service,
                                std::vector<HttpRequestHandler *> &req_handlers,
-                               std::vector<HttpWebSocketHandler *> &ws_handlers)
+                               std::vector<HttpWebSocketHandler *> &ws_handlers,
+                               boost::asio::ssl::context *ctx)
     : socket_(io_service), req_handlers_(req_handlers),
       ws_handlers_(ws_handlers), user_data_(nullptr) {
     http_parser_settings_init(&settings_);
@@ -27,35 +28,67 @@ HttpConnection::HttpConnection(boost::asio::io_service &io_service,
     settings_.on_body = HttpConnection::on_body_cb;
     http_parser_init(&parser_, HTTP_REQUEST);
     parser_.data = this;
+    if (ctx) {
+        ssl_socket_.reset(new ssl_socket(socket_, *ctx));
+    }
 }
 
 void HttpConnection::start() {
-    socket_.async_read_some(
-        boost::asio::buffer(buf_),
-        boost::bind(&HttpConnection::handle_read, shared_from_this(),
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    if (ssl_socket_ && need_handshake_) {
+        need_handshake_ = false;
+        ssl_socket_->async_handshake(
+            boost::asio::ssl::stream_base::server,
+            boost::bind(&HttpConnection::handle_handshake, shared_from_this(),
+                        boost::asio::placeholders::error));
+    } else {
+        async_read_some(
+            boost::asio::buffer(buf_),
+            boost::bind(&HttpConnection::handle_read, shared_from_this(),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    }
 }
 
-boost::asio::ip::tcp::socket &HttpConnection::getSocket() { return socket_; }
+void HttpConnection::handle_handshake(const boost::system::error_code &ec) {
+    if (ec) {
+        BOOST_LOG_TRIVIAL(error) << "SSL Handshake error: " << ec.message();
+        close();
+        return;
+    }
+
+    async_read_some(boost::asio::buffer(buf_),
+                    boost::bind(&HttpConnection::handle_read,
+                                shared_from_this(),
+                                boost::asio::placeholders::error,
+                                boost::asio::placeholders::bytes_transferred));
+}
+
+void HttpConnection::close() {
+    boost::system::error_code ec;
+    if (ssl_socket_) {
+        ssl_socket_->shutdown(ec);
+    } else {
+        socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+    }
+
+    socket_.close(ec);
+}
 
 void HttpConnection::setUserData(void *user_data) { user_data_ = user_data; }
 void *HttpConnection::getUserData() { return user_data_; }
 
 void HttpConnection::write(boost::asio::const_buffer buf) {
-    boost::asio::async_write(
-        socket_, boost::asio::buffer(buf),
-        boost::bind(&HttpConnection::handle_write, shared_from_this(),
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    async_write(boost::asio::buffer(buf),
+                boost::bind(&HttpConnection::handle_write, shared_from_this(),
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
 }
 
 void HttpConnection::write(std::vector<boost::asio::const_buffer> buffers) {
-    boost::asio::async_write(
-        socket_, buffers,
-        boost::bind(&HttpConnection::handle_write, shared_from_this(),
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    async_write(buffers,
+                boost::bind(&HttpConnection::handle_write, shared_from_this(),
+                            boost::asio::placeholders::error,
+                            boost::asio::placeholders::bytes_transferred));
 }
 
 void HttpConnection::handle_write(const boost::system::error_code &ec,
@@ -77,7 +110,7 @@ void HttpConnection::handle_read(const boost::system::error_code &ec,
 
     if (ec) {
         BOOST_LOG_TRIVIAL(error) << "Read error occurred: " << ec.message();
-        getSocket().close();
+        close();
         return;
     }
 
@@ -92,19 +125,20 @@ void HttpConnection::handle_read(const boost::system::error_code &ec,
         }
     }
 
-    socket_.async_read_some(
-        boost::asio::buffer(buf_),
-        boost::bind(&HttpConnection::handle_read, shared_from_this(),
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    async_read_some(boost::asio::buffer(buf_),
+                    boost::bind(&HttpConnection::handle_read,
+                                shared_from_this(),
+                                boost::asio::placeholders::error,
+                                boost::asio::placeholders::bytes_transferred));
 }
 
 bool HttpConnection::handle_http_read(std::size_t bytes_transferred) {
     size_t nparsed = http_parser_execute(&parser_, &settings_, buf_.data(),
                                          bytes_transferred);
     if (nparsed != bytes_transferred) {
-        BOOST_LOG_TRIVIAL(error) << "Error while parsing incoming http request!";
-        getSocket().close();
+        BOOST_LOG_TRIVIAL(error)
+            << "Error while parsing incoming http request!";
+        close();
         return false;
     }
     return true;
@@ -112,14 +146,15 @@ bool HttpConnection::handle_http_read(std::size_t bytes_transferred) {
 
 bool HttpConnection::handle_web_socket_read(std::size_t bytes_transferred) {
     if (!ws_handler_) {
-        BOOST_LOG_TRIVIAL(error) << "Received WebSocket message without having a handler!";
-        getSocket().close();
+        BOOST_LOG_TRIVIAL(error)
+            << "Received WebSocket message without having a handler!";
+        close();
         return false;
     }
 
     if (!ws_parser_.handleMessage(*this, buf_.data(), bytes_transferred,
                                   *ws_handler_)) {
-        getSocket().close();
+        close();
         return false;
     }
 
@@ -160,17 +195,18 @@ int HttpConnection::on_message_complete(http_parser *parser) {
     if (parser_.upgrade) {
         ws_handler_ = determine_web_socket_handler(*request_);
         if (!ws_handler_) {
-            BOOST_LOG_TRIVIAL(error) << "No appropriate WebSocket handler available!";
+            BOOST_LOG_TRIVIAL(error)
+                << "No appropriate WebSocket handler available!";
 
             response_->send(HttpStatus::not_found);
-            getSocket().close();
+            close();
             return 0;
         }
 
         if (!ws_parser_.handleHandshake(*request_, *response_)) {
             BOOST_LOG_TRIVIAL(error) << "Unable to handle WebSocket handshake!";
             response_->send(HttpStatus::bad_request);
-            getSocket().close();
+            close();
             return 0;
         }
 

@@ -42,8 +42,9 @@ bool HttpFileHandler::handleRequest(const HttpRequest &req, HttpResponse &res) {
             return true;
         }
 
-        BOOST_LOG_TRIVIAL(info) << "Requesting non existing path " << request_path
-            << ", returning installed error page instead.";
+        BOOST_LOG_TRIVIAL(info) << "Requesting non existing path "
+                                << request_path
+                                << ", returning installed error page instead.";
         is = std::ifstream(errorPage_.c_str(), std::ios::in | std::ios::binary);
         request_path = errorPage_;
     }
@@ -72,7 +73,8 @@ bool HttpFileHandler::setFileNotFoundPage(const std::string &errorPath) {
     std::string full_path = root_ + errorPath;
     std::ifstream is(full_path.c_str(), std::ios::in | std::ios::binary);
     if (!is) {
-        BOOST_LOG_TRIVIAL(error) << "Could not set non existing error file " << full_path;
+        BOOST_LOG_TRIVIAL(error) << "Could not set non existing error file "
+                                 << full_path;
         return false;
     }
 

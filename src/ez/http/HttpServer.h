@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/system/error_code.hpp>
 
 namespace ez {
@@ -16,6 +17,9 @@ class HttpWebSocketHandler;
 class HttpServer {
   public:
     HttpServer(boost::asio::io_service &io_service, int port);
+    HttpServer(boost::asio::io_service &io_service, int port,
+               const std::string &cert_file, const std::string &key_file,
+               const std::string &dh_file);
 
     void addRequestHandler(HttpRequestHandler *handler);
     void addWebSocketHandler(HttpWebSocketHandler *handler);
@@ -27,6 +31,7 @@ class HttpServer {
 
     boost::asio::io_service &io_service_;
     boost::asio::ip::tcp::acceptor acceptor_;
+    std::unique_ptr<boost::asio::ssl::context> ssl_ctx;
 
     std::vector<HttpRequestHandler *> req_handlers_;
     std::vector<HttpWebSocketHandler *> ws_handlers_;
