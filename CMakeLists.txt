@@ -5,6 +5,10 @@ if(NOT WIN32)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 endif()
 
+if(WIN32)
+    add_definitions(-D_WIN32_WINNT=0x0600)
+endif()
+
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
@@ -37,3 +41,6 @@ add_library(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} ${CONAN_LIBS})
+
+add_executable(ExamplesHelloWorld examples/HelloWorld.cpp)
+target_link_libraries(ExamplesHelloWorld ${CONAN_LIBS} ${PROJECT_NAME})

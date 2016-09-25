@@ -5,6 +5,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <boost/log/trivial.hpp>
+
 #include "ez/http/HttpRequest.h"
 #include "ez/http/HttpResponse.h"
 
@@ -38,12 +40,12 @@ bool HttpFileHandler::handleRequest(const HttpRequest &req, HttpResponse &res) {
         if (errorPage_.empty()) {
             res.send(HttpStatus::not_found);
             return true;
-        } else {
-            printf("Requesting non existing path %s, returning installed error page instead.\n",
-                request_path.c_str());
-            is = std::ifstream(errorPage_.c_str(), std::ios::in | std::ios::binary);
-            request_path = errorPage_;
         }
+
+        BOOST_LOG_TRIVIAL(info) << "Requesting non existing path " << request_path
+            << ", returning installed error page instead.";
+        is = std::ifstream(errorPage_.c_str(), std::ios::in | std::ios::binary);
+        request_path = errorPage_;
     }
 
     // Determine the file extension.
@@ -70,7 +72,7 @@ bool HttpFileHandler::setFileNotFoundPage(const std::string &errorPath) {
     std::string full_path = root_ + errorPath;
     std::ifstream is(full_path.c_str(), std::ios::in | std::ios::binary);
     if (!is) {
-        printf("Could not set non existing error file  %s", full_path.c_str());
+        BOOST_LOG_TRIVIAL(error) << "Could not set non existing error file " << full_path;
         return false;
     }
 
