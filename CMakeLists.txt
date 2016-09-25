@@ -41,3 +41,6 @@ add_library(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} ${CONAN_LIBS})
+
+add_executable(ExamplesHelloWorld examples/HelloWorld.cpp)
+target_link_libraries(ExamplesHelloWorld ${CONAN_LIBS} ${PROJECT_NAME})
