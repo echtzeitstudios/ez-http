@@ -4,6 +4,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <openssl/sha.h>
 
@@ -116,7 +117,7 @@ bool HttpWebSocketParser::handleMessage(HttpConnection &conn, char *data,
                                         HttpWebSocketHandler &handler) {
     switch (parseFrame((unsigned char *)data, len)) {
     case ERROR_FRAME:
-        fprintf(stderr, "ERROR during websocket!\n");
+        BOOST_LOG_TRIVIAL(error) << "ERROR during websocket!";
         return false;
 
     case CLOSING_FRAME:
@@ -148,7 +149,7 @@ bool HttpWebSocketParser::handleMessage(HttpConnection &conn, char *data,
         return true;
 
     default:
-        printf("que?\n");
+        BOOST_LOG_TRIVIAL(error) << "Received unknown WebSocket frame.";
         return false;
     }
 }
@@ -225,7 +226,8 @@ HttpWebSocketParser::parseFrame(unsigned char *in_buffer, size_t in_length) {
     case 0xA:
         return FrameType::PONG_FRAME;
     default:
-        fprintf(stderr, ">> unknown opcode: %d\n", msg_opcode);
+        BOOST_LOG_TRIVIAL(error) << "Received unknown WebSocket opcode "
+                                 << msg_opcode;
         return FrameType::ERROR_FRAME;
     }
 }

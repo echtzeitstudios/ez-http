@@ -1,6 +1,7 @@
 #include "ez/http/HttpConnection.h"
 
 #include <boost/bind.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <http_parser.h>
 
@@ -57,10 +58,10 @@ void HttpConnection::write(std::vector<boost::asio::const_buffer> buffers) {
                     boost::asio::placeholders::bytes_transferred));
 }
 
-void HttpConnection::handle_write(const boost::system::error_code &error,
+void HttpConnection::handle_write(const boost::system::error_code &ec,
                                   size_t bytes_transferred) {
-    if (error) {
-        fprintf(stderr, "Write error occurred: %s\n", error.message().c_str());
+    if (ec) {
+        BOOST_LOG_TRIVIAL(error) << "Write error occurred: " << ec.message();
         return;
     }
 }
@@ -75,7 +76,7 @@ void HttpConnection::handle_read(const boost::system::error_code &ec,
     }
 
     if (ec) {
-        fprintf(stderr, "Read error occurred: %s\n", ec.message().c_str());
+        BOOST_LOG_TRIVIAL(error) << "Read error occurred: " << ec.message();
         getSocket().close();
         return;
     }
@@ -102,7 +103,7 @@ bool HttpConnection::handle_http_read(std::size_t bytes_transferred) {
     size_t nparsed = http_parser_execute(&parser_, &settings_, buf_.data(),
                                          bytes_transferred);
     if (nparsed != bytes_transferred) {
-        fprintf(stderr, "Error while parsing incoming http request!\n");
+        BOOST_LOG_TRIVIAL(error) << "Error while parsing incoming http request!";
         getSocket().close();
         return false;
     }
@@ -111,8 +112,7 @@ bool HttpConnection::handle_http_read(std::size_t bytes_transferred) {
 
 bool HttpConnection::handle_web_socket_read(std::size_t bytes_transferred) {
     if (!ws_handler_) {
-        fprintf(stderr,
-                "Received WebSocket message without having an handler!\n");
+        BOOST_LOG_TRIVIAL(error) << "Received WebSocket message without having a handler!";
         getSocket().close();
         return false;
     }
@@ -160,14 +160,15 @@ int HttpConnection::on_message_complete(http_parser *parser) {
     if (parser_.upgrade) {
         ws_handler_ = determine_web_socket_handler(*request_);
         if (!ws_handler_) {
-            fprintf(stderr, "No appropriate WebSocket handler available!\n");
+            BOOST_LOG_TRIVIAL(error) << "No appropriate WebSocket handler available!";
+
             response_->send(HttpStatus::not_found);
             getSocket().close();
             return 0;
         }
 
         if (!ws_parser_.handleHandshake(*request_, *response_)) {
-            fprintf(stderr, "Unable to handle WebSocket handshake!\n");
+            BOOST_LOG_TRIVIAL(error) << "Unable to handle WebSocket handshake!";
             response_->send(HttpStatus::bad_request);
             getSocket().close();
             return 0;
