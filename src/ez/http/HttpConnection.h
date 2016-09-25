@@ -108,6 +108,7 @@ class HttpConnection : public std::enable_shared_from_this<HttpConnection> {
     HttpWebSocketHandler *ws_handler_;
     HttpWebSocketParser ws_parser_;
     bool upgraded_{false};
+    bool should_close_{false};
     void *user_data_;
 };
 

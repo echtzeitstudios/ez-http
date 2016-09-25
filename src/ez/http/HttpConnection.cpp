@@ -141,6 +141,10 @@ bool HttpConnection::handle_http_read(std::size_t bytes_transferred) {
         close();
         return false;
     }
+    if (should_close_) {
+        close();
+        return false;
+    }
     return true;
 }
 
@@ -188,6 +192,8 @@ int HttpConnection::on_message_complete(http_parser *parser) {
     request_->method = static_cast<http_method>(parser_.method);
     request_->http_version_major = parser_.http_major;
     request_->http_version_minor = parser_.http_minor;
+    const auto is_http_1_0 = parser_.http_major == 1 && parser_.http_minor == 0;
+    const auto should_keep_alive = http_should_keep_alive(parser) != 0;
 
     response_ = std::make_shared<HttpResponse>(*this);
 
@@ -210,13 +216,16 @@ int HttpConnection::on_message_complete(http_parser *parser) {
             return 0;
         }
 
-        // TODO: is this already the ready state?
         ws_handler_->handleReadyState(*this);
         upgraded_ = true;
         return 0;
     }
 
-    if (http_should_keep_alive(parser) == 0) {
+    if (should_keep_alive) {
+        if (is_http_1_0) {
+            response_->addHeader("Connection", "keep-alive");
+        }
+    } else {
         response_->addHeader("Connection", "close");
     }
 
@@ -224,7 +233,6 @@ int HttpConnection::on_message_complete(http_parser *parser) {
     for (auto handler : req_handlers_) {
         if (handler->handleRequest(*request_, *response_)) {
             handled = true;
-            // TODO: check whether response was sent?
             break;
         }
     }
@@ -233,8 +241,9 @@ int HttpConnection::on_message_complete(http_parser *parser) {
         response_->send(HttpStatus::not_found);
     }
 
-    // TODO: correct continue http status 100 handling
-    // TODO: correct keep-alive handling!
+    if (is_http_1_0 && !should_keep_alive) {
+        should_close_ = true;
+    }
 
     return 0;
 }
