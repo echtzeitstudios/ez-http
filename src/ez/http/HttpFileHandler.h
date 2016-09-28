@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include <boost/optional.hpp>
+
 #include "ez/http/HttpRequestHandler.h"
 
 namespace ez {
@@ -14,13 +16,13 @@ class HttpFileHandler : public HttpRequestHandler {
     virtual bool handleRequest(const HttpRequest &req,
                                HttpResponse &res) override;
 
-    bool setFileNotFoundPage(const std::string &errorPath);
+  protected:
+    virtual boost::optional<std::string> resolve_path(const std::string &);
 
   private:
     std::string determine_mime_type(const std::string &extension);
 
     std::string root_;
-    std::string errorPage_;
 };
 
 } // namespace http

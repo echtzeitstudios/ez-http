@@ -31,6 +31,8 @@ add_library(${PROJECT_NAME}
     src/ez/http/HttpRequestHandler.h
     src/ez/http/HttpServer.h
     src/ez/http/HttpServer.cpp
+    src/ez/http/HttpSingleFileHandler.h
+    src/ez/http/HttpSingleFileHandler.cpp
     src/ez/http/HttpStatus.h
     src/ez/http/HttpWebSocketHandler.h
     src/ez/http/HttpWebSocketParser.h

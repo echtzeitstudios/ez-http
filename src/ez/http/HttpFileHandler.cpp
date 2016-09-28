@@ -29,32 +29,23 @@ bool HttpFileHandler::handleRequest(const HttpRequest &req, HttpResponse &res) {
         return true;
     }
 
-    // If path ends in slash (i.e. is a directory) then add "index.html".
-    if (request_path[request_path.size() - 1] == '/') {
-        request_path += "index.html";
+    auto resolved_path_opt = resolve_path(std::move(request_path));
+    if (!resolved_path_opt) {
+        return false;
     }
 
-    std::string full_path = root_ + request_path;
-    std::ifstream is(full_path.c_str(), std::ios::in | std::ios::binary);
+    auto &resolved_path = resolved_path_opt.get();
+    std::ifstream is(resolved_path.c_str(), std::ios::in | std::ios::binary);
     if (!is) {
-        if (errorPage_.empty()) {
-            res.send(HttpStatus::not_found);
-            return true;
-        }
-
-        BOOST_LOG_TRIVIAL(info) << "Requesting non existing path "
-                                << request_path
-                                << ", returning installed error page instead.";
-        is = std::ifstream(errorPage_.c_str(), std::ios::in | std::ios::binary);
-        request_path = errorPage_;
+        return false;
     }
 
     // Determine the file extension.
-    auto last_slash_pos = request_path.find_last_of("/");
-    auto last_dot_pos = request_path.find_last_of(".");
+    auto last_slash_pos = resolved_path.find_last_of("/");
+    auto last_dot_pos = resolved_path.find_last_of(".");
     auto extension = std::string();
     if (last_dot_pos != std::string::npos && last_dot_pos > last_slash_pos) {
-        extension = request_path.substr(last_dot_pos + 1);
+        extension = resolved_path.substr(last_dot_pos + 1);
     }
 
     std::string body;
@@ -69,17 +60,14 @@ bool HttpFileHandler::handleRequest(const HttpRequest &req, HttpResponse &res) {
     return true;
 }
 
-bool HttpFileHandler::setFileNotFoundPage(const std::string &errorPath) {
-    std::string full_path = root_ + errorPath;
-    std::ifstream is(full_path.c_str(), std::ios::in | std::ios::binary);
-    if (!is) {
-        BOOST_LOG_TRIVIAL(error) << "Could not set non existing error file "
-                                 << full_path;
-        return false;
+boost::optional<std::string>
+HttpFileHandler::resolve_path(const std::string &request_path) {
+    auto resolved_path = root_ + request_path;
+    // If path ends in slash (i.e. is a directory) then add "index.html".
+    if (resolved_path[resolved_path.size() - 1] == '/') {
+        resolved_path += "index.html";
     }
-
-    errorPage_ = full_path;
-    return true;
+    return resolved_path;
 }
 
 std::string HttpFileHandler::determine_mime_type(const std::string &extension) {
