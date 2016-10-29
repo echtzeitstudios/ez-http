@@ -4,10 +4,10 @@ import os
 
 class EzHttpConan(ConanFile):
     name = "ez-http"
-    version = "0.2.2"
+    version = "0.2.3"
     ZIP_FOLDER_NAME = "%s-%s" % (name, version)
-    url = "https://github.com/0x7f/ez-http"
-    license = "https://github.com/0x7f/ez-http/blob/master/LICENSE"
+    url = "https://github.com/echtzeitstudios/ez-http"
+    license = "https://github.com/echtzeitstudios/ez-http/blob/master/LICENSE"
     export = "*"
     settings = "os", "compiler", "build_type", "arch"
     requires = "OpenSSL/1.0.2h@lasote/stable", "Boost/1.60.0@lasote/stable", "http-parser/2.6.0@aptakhin/stable"
@@ -17,7 +17,7 @@ class EzHttpConan(ConanFile):
 
     def source(self):
         zip_name = "v%s.zip" % self.version
-        download("https://github.com/0x7f/ez-http/archive/%s" % zip_name, zip_name)
+        download("https://github.com/echtzeitstudios/ez-http/archive/%s" % zip_name, zip_name)
         unzip(zip_name)
         os.unlink(zip_name)
 
