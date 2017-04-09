@@ -12,7 +12,7 @@ endif()
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 # boost defines
 add_definitions(-DBOOST_IOSTREAMS_NO_LIB)
